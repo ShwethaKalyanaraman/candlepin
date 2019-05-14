@@ -16,12 +16,10 @@ package org.candlepin.async.tasks;
 
 import com.google.inject.Inject;
 import org.candlepin.async.AsyncJob;
+import org.candlepin.async.JobArguments;
 import org.candlepin.async.JobBuilder;
-import org.candlepin.async.JobDataMap;
-import org.candlepin.async.JobExecutionContext;
 import org.candlepin.async.JobExecutionException;
 import org.candlepin.async.JobConstraints;
-import org.candlepin.async.JobManager;
 import org.candlepin.controller.ManifestManager;
 import org.candlepin.model.Consumer;
 import org.candlepin.model.Owner;
@@ -43,6 +41,9 @@ import java.util.Map;
  * @see ExportResult
  */
 public class ExportJob implements AsyncJob {
+    private static Logger log = LoggerFactory.getLogger(ExportJob.class);
+
+    public static final String JOB_KEY = "EXPORT_JOB";
 
     protected static final String OWNER_KEY = "org";
     protected static final String CONSUMER_KEY = "consumer_uuid";
@@ -51,24 +52,6 @@ public class ExportJob implements AsyncJob {
     protected static final String API_URL = "api_url";
     protected static final String EXTENSION_DATA = "extension_data";
 
-    private static final String JOB_KEY = "EXPORT_JOB";
-
-    // Register the job with the JobManager
-    static {
-        JobManager.registerJob(JOB_KEY, ExportJob.class);
-    }
-
-    // NOTE: In order the get the above static block to run when candlepin is initialized,
-    //       we need to wrap the static key access in this method. When 'static final'
-    //       is used, the static block isn't run due to the way java processes them.
-    //
-    //       'public static String' can be used but checkstyle warns against this.
-    // TODO Are we Ok with this?
-    public static String getJobKey() {
-        return JOB_KEY;
-    }
-
-    private static Logger log = LoggerFactory.getLogger(ExportJob.class);
 
     private ManifestManager manifestManager;
 
@@ -78,13 +61,12 @@ public class ExportJob implements AsyncJob {
     }
 
     @Override
-    public Object execute(final JobExecutionContext jdata) throws JobExecutionException {
-        final JobDataMap map = jdata.getJobData();
-        final String consumerUuid = map.getAsString(CONSUMER_KEY);
-        final String cdnLabel = map.getAsString(CDN_LABEL);
-        final String webAppPrefix = map.getAsString(WEBAPP_PREFIX);
-        final String apiUrl = map.getAsString(API_URL);
-        final Map<String, String> extensionData = (Map<String, String>) map.get(EXTENSION_DATA);
+    public Object execute(JobArguments args) throws JobExecutionException {
+        final String consumerUuid = args.getAsString(CONSUMER_KEY);
+        final String cdnLabel = args.getAsString(CDN_LABEL);
+        final String webAppPrefix = args.getAsString(WEBAPP_PREFIX);
+        final String apiUrl = args.getAsString(API_URL);
+        final Map<String, String> extensionData = (Map<String, String>) args.getAs(EXTENSION_DATA, Map.class);
 
         log.info("Starting async export for {}", consumerUuid);
         try {

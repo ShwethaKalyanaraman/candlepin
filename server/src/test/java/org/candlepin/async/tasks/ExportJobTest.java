@@ -14,9 +14,8 @@
  */
 package org.candlepin.async.tasks;
 
+import org.candlepin.async.JobArguments;
 import org.candlepin.async.JobBuilder;
-import org.candlepin.async.JobDataMap;
-import org.candlepin.async.JobExecutionContext;
 import org.candlepin.controller.ManifestManager;
 import org.candlepin.model.Consumer;
 import org.candlepin.model.Owner;
@@ -36,7 +35,8 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+
+
 
 @RunWith(MockitoJUnitRunner.class)
 public class ExportJobTest extends BaseJobTest {
@@ -47,8 +47,6 @@ public class ExportJobTest extends BaseJobTest {
 
     @Mock
     private ManifestManager manifestManager;
-    @Mock
-    private JobExecutionContext ctx;
     private ExportJob job;
 
     @Before
@@ -74,12 +72,12 @@ public class ExportJobTest extends BaseJobTest {
         final JobBuilder builder = ExportJob.scheduleExport(
             distributor, owner, CDN_LABEL, WEBAPP_PREFIX, API_URL, extData);
 
-        final Map<String, Object> dataMap = builder.getJobArguments();
-        assertEquals(dataMap.get(ExportJob.CONSUMER_KEY), distributor.getUuid());
-        assertEquals(dataMap.get(ExportJob.CDN_LABEL), CDN_LABEL);
-        assertEquals(dataMap.get(ExportJob.WEBAPP_PREFIX), WEBAPP_PREFIX);
-        assertEquals(dataMap.get(ExportJob.API_URL), API_URL);
-        assertEquals(dataMap.get(ExportJob.EXTENSION_DATA), extData);
+        JobArguments args = builder.getJobArguments();
+        assertEquals(args.getAsString(ExportJob.CONSUMER_KEY), distributor.getUuid());
+        assertEquals(args.getAsString(ExportJob.CDN_LABEL), CDN_LABEL);
+        assertEquals(args.getAsString(ExportJob.WEBAPP_PREFIX), WEBAPP_PREFIX);
+        assertEquals(args.getAsString(ExportJob.API_URL), API_URL);
+        assertEquals(args.getAs(ExportJob.EXTENSION_DATA, Map.class), extData);
 
         Map<String, String> metadata = builder.getJobMetadata();
         assertEquals(owner.getKey(), metadata.get(ExportJob.OWNER_KEY));
@@ -91,21 +89,23 @@ public class ExportJobTest extends BaseJobTest {
     public void ensureJobSuccess() throws Exception {
         final Owner owner = TestUtil.createOwner();
         owner.setId(TestUtil.randomString());
+
         final Consumer distributor = TestUtil.createDistributor(owner);
         final String manifestId = "1234";
         final Map<String, String> extData = new HashMap<>();
         final ExportResult result = new ExportResult(distributor.getUuid(), manifestId);
+
         doReturn(result).when(manifestManager).generateAndStoreManifest(
             eq(distributor.getUuid()),
             eq(CDN_LABEL),
             eq(WEBAPP_PREFIX),
             eq(API_URL),
             eq(extData));
-        final JobBuilder detail = ExportJob.scheduleExport(
-            distributor, owner, CDN_LABEL, WEBAPP_PREFIX, API_URL, extData);
-        when(ctx.getJobData()).thenReturn(new JobDataMap(detail.getJobArguments()));
 
-        final Object actualResult = job.execute(ctx);
+        final JobBuilder builder = ExportJob.scheduleExport(
+            distributor, owner, CDN_LABEL, WEBAPP_PREFIX, API_URL, extData);
+
+        final Object actualResult = job.execute(builder.getJobArguments());
 
         assertEquals(result, actualResult);
         verify(manifestManager).generateAndStoreManifest(
@@ -114,7 +114,6 @@ public class ExportJobTest extends BaseJobTest {
             eq(WEBAPP_PREFIX),
             eq(API_URL),
             eq(extData));
-
     }
 
 }

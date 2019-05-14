@@ -16,8 +16,7 @@ package org.candlepin.async;
 
 import org.candlepin.audit.EventSink;
 import org.candlepin.auth.Principal;
-import org.candlepin.auth.PrincipalData;
-import org.candlepin.auth.UserPrincipal;
+import org.candlepin.auth.SystemPrincipal;
 import org.candlepin.common.config.Configuration;
 import org.candlepin.common.filter.LoggingFilter;
 import org.candlepin.config.ConfigProperties;
@@ -32,8 +31,6 @@ import org.candlepin.model.CandlepinModeChange;
 import org.candlepin.model.CandlepinModeChange.Mode;
 import org.candlepin.util.Util;
 import org.jboss.resteasy.spi.ResteasyProviderFactory;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 
 import com.google.inject.Injector;
 import com.google.inject.persist.UnitOfWork;
@@ -58,7 +55,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import java.util.Collections;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -85,9 +81,6 @@ public class JobManager implements ModeChangeListener {
 
     private static final String QRTZ_GROUP_CONFIG = "cp_async_config";
     private static final String QRTZ_GROUP_MANUAL = "cp_async_manual";
-
-    // Temporary constant for the principal key; used to store the principal in the job data
-    public static final String PRINCIPAL_KEY = "principal_key";
 
     /** Stores our mapping of job keys to job classes */
     private static final Map<String, Class<? extends AsyncJob>> JOB_KEY_MAP = new HashMap<>();
@@ -653,7 +646,7 @@ public class JobManager implements ModeChangeListener {
         builder.setJobArgument("principal", principal);
         job.setPrincipal(principal != null ? principal.getName() : null);
 
-        // Metadata and Logging configuration...
+        // Metadata and logging configuration...
         job.setMetadata(builder.getJobMetadata());
 
         String csid = MDC.get(LoggingFilter.CSID_KEY);
@@ -666,20 +659,7 @@ public class JobManager implements ModeChangeListener {
 
         // Retry and runtime configuration...
         job.setMaxAttempts(builder.getRetryCount() + 1);
-        Map<String, Object> jobArguments = new HashMap<>(builder.getJobArguments());
-
-        // TODO: Find better way to pass principal to the execution thread.
-        if (principal != null) {
-            try {
-                String toJson = Util.toJson(new PrincipalData(principal.getType(), principal.getName()));
-                jobArguments.put(PRINCIPAL_KEY, toJson);
-            }
-            catch (JsonProcessingException e) {
-                log.error("Could not parse the principal data");
-            }
-        }
-
-        job.setJobData(Collections.unmodifiableMap(jobArguments));
+        job.setJobArguments(builder.getJobArguments());
 
         return job;
     }
@@ -869,10 +849,8 @@ public class JobManager implements ModeChangeListener {
 
         try {
             uow.begin();
-            setupLogging(status);
-
-            // TODO: fix this
-            setupPrincipal(status.getJobData());
+            this.setupLogging(status);
+            this.setupPrincipal(status);
 
             final AsyncJob job = injector.getInstance(jobClass);
 
@@ -897,7 +875,7 @@ public class JobManager implements ModeChangeListener {
             Object result = null;
 
             try {
-                result = job.execute(status);
+                result = job.execute(status.getJobArguments());
             }
             catch (JobExecutionException e) {
                 boolean retry = !e.isTerminal() && status.getAttempts() < status.getMaxAttempts();
@@ -906,10 +884,12 @@ public class JobManager implements ModeChangeListener {
                 throw e;
             }
             catch (Exception e) {
-                boolean retry = status.getAttempts() < status.getMaxAttempts();
-                status = this.processJobFailure(status, eventSink, e, retry);
+                JobExecutionException jee = new JobExecutionException(e);
 
-                throw new JobExecutionException(e);
+                boolean retry = status.getAttempts() < status.getMaxAttempts();
+                status = this.processJobFailure(status, eventSink, jee, retry);
+
+                throw jee;
             }
 
             eventSink.sendEvents();
@@ -925,6 +905,8 @@ public class JobManager implements ModeChangeListener {
         finally {
             uow.end();
             candlepinRequestScope.exit();
+
+            ResteasyProviderFactory.popContextData(Principal.class);
         }
     }
 
@@ -948,6 +930,19 @@ public class JobManager implements ModeChangeListener {
         if (logLevel != null && !logLevel.isEmpty()) {
             MDC.put("logLevel", logLevel);
         }
+    }
+
+    /**
+     * Configures and injects the principal to be used during the execution of the specified job.
+     *
+     * @param status
+     *  the job status to use to configure the principal
+     */
+    private void setupPrincipal(AsyncJobStatus status) {
+        String name = status.getPrincipal();
+        Principal principal = name != null ? new JobPrincipal(name) : new SystemPrincipal();
+
+        ResteasyProviderFactory.pushContext(Principal.class, principal);
     }
 
     /**
@@ -1104,19 +1099,6 @@ public class JobManager implements ModeChangeListener {
         }
 
         return status;
-    }
-
-    private void setupPrincipal(final JobDataMap jobData) {
-        // TODO remove this guard check once we have better way to share the principal
-        if (!jobData.containsKey("principal")) {
-            log.warn("Principal data are missing from the job data!");
-            return;
-        }
-        final String principalJson = jobData.getAsString(PRINCIPAL_KEY);
-        final PrincipalData principal = Util.fromJson(principalJson, PrincipalData.class);
-        ResteasyProviderFactory.pushContext(
-            Principal.class,
-            new UserPrincipal(principal.getName(), Collections.emptyList(), false));
     }
 
     /**

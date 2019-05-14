@@ -14,6 +14,11 @@
  */
 package org.candlepin.async;
 
+import org.candlepin.util.ObjectMapperFactory;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,12 +32,13 @@ import java.util.Set;
  * The JobManager manages the queueing, execution and general bookkeeping on jobs
  */
 public class JobBuilder {
+    private static final ObjectMapper JSON_MAPPER = ObjectMapperFactory.getObjectMapper();
 
     private String key;
     private String name;
     private String group;
     private Map<String, String> metadata;
-    private Map<String, Object> arguments;
+    private Map<String, String> arguments;
     private Set<JobConstraint> constraints;
     private int retries;
     private String logLevel;
@@ -175,7 +181,14 @@ public class JobBuilder {
             throw new IllegalArgumentException("arg is null");
         }
 
-        this.arguments.put(arg, value);
+        try {
+            String svalue = value != null ? JSON_MAPPER.writeValueAsString(value) : null;
+            this.arguments.put(arg, svalue);
+        }
+        catch (JsonProcessingException e) {
+            throw new ArgumentConversionException("Unable to serialize object: " + value, e);
+        }
+
         return this;
     }
 
@@ -188,8 +201,8 @@ public class JobBuilder {
      * @return
      *  a map of arguments to pass to the job at execution time
      */
-    public Map<String, Object> getJobArguments() {
-        return Collections.unmodifiableMap(this.arguments);
+    public JobArguments getJobArguments() {
+        return new JobArguments(this.arguments != null ? this.arguments : Collections.emptyMap());
     }
 
     /**

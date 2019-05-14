@@ -18,6 +18,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
+import org.candlepin.async.JobBuilder;
 import org.candlepin.async.JobConstraint;
 import org.candlepin.model.AsyncJobStatus;
 
@@ -48,7 +49,13 @@ public class UniqueByArgConstraintTest {
         status.setJobKey(jobKey);
 
         if (params != null) {
-            status.setJobData(params);
+            JobBuilder builder = JobBuilder.forJob("dummy_job");
+
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                builder.setJobArgument(entry.getKey(), entry.getValue());
+            }
+
+            status.setJobArguments(builder.getJobArguments());
         }
 
         return status;

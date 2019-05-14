@@ -14,19 +14,29 @@
  */
 package org.candlepin.async;
 
+import org.candlepin.auth.SystemPrincipal;
+
 
 
 /**
- * The JobExecutionContext provides context-specific data and arguments to a job at the time of
- * execution.
+ * The JobPrincipal is used during the execution of a job to provide system-level access for the job
+ * operation, while inheriting the name of the principal which triggered the job.
  */
-public interface JobExecutionContext {
+public class JobPrincipal extends SystemPrincipal {
+    private static final long serialVersionUID = 1L;
 
-    // TODO: maybe make a custom subclass of map that provides some auto-casting fetch methods?
+    private final String name;
 
-    JobDataMap getJobData();
+    public JobPrincipal(String name) {
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("principal name is null or empty");
+        }
 
+        this.name = name;
+    }
 
-    // Add other stuff here
-
+    @Override
+    public String getName() {
+        return this.name;
+    }
 }

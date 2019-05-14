@@ -24,8 +24,8 @@ public interface AsyncJob {
     /**
      * Executes this job.
      *
-     * @param jdata
-     *  The JobExecutionContext which contains arguments and job metadata
+     * @param args
+     *  A JobArguments instance containing a map of the arguments specified during job construction
      *
      * @throws JobExecutionException
      *  if an exception occurs during job execution
@@ -33,6 +33,6 @@ public interface AsyncJob {
      * @return
      *  The result of the job
      */
-    Object execute(JobExecutionContext jdata) throws JobExecutionException;
+    Object execute(JobArguments args) throws JobExecutionException;
 
 }

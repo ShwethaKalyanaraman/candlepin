@@ -14,12 +14,15 @@
  */
 package org.candlepin.async;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 
 
 /**
  * The JobException represents the class of unexpected errors that may occur within the job
  * system.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@class")
 public class JobException extends Exception {
 
     protected final boolean terminal;
