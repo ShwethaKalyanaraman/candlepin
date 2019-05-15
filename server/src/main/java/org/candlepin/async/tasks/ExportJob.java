@@ -26,7 +26,6 @@ import org.candlepin.controller.ManifestManager;
 import org.candlepin.model.Consumer;
 import org.candlepin.model.Owner;
 import org.candlepin.sync.ExportResult;
-import org.candlepin.util.Util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,24 +98,44 @@ public class ExportJob implements AsyncJob {
     }
 
     /**
-     * Schedules the generation of a consumer export. This job starts immediately.
+     * Creates a JobBuilder configured to execute the export job. Callers may further manipulate
+     * the JobBuilder as necessary before queuing it.
      *
-     * @param consumer the target consumer
-     * @param cdnLabel the cdn label
-     * @param webAppPrefix the web app prefix
-     * @param apiUrl the api url
-     * @return a JobDetail representing the job to be started.
+     * @param consumer
+     *  the consumer to export
+     *
+     * @param owner
+     *  the owner performing the export
+     *
+     * @param cdnLabel
+     *  the CDN label to store in the meta file
+     *
+     * @param webAppPrefix
+     *  the URL pointing to the manifest's originating web application
+     *
+     * @param apiUrl
+     *  the API URL pointing to the manifest's originating candlepin API
+     *
+     * @param extensionData
+     *  data to be passed to the {@link ExportExtensionAdapter} when creating a new export of the
+     *  target consumer.
+     *
+     * @return
+     *  a JobBuilder configured to execute the export job
      */
-    public static JobBuilder scheduleExport(
-        final Consumer consumer,
-        final Owner owner,
-        final String cdnLabel,
-        final String webAppPrefix,
-        final String apiUrl,
-        final Map<String, String> extensionData
-    ) {
+    public static JobBuilder createJobBuilder(Consumer consumer, Owner owner, String cdnLabel,
+        String webAppPrefix, String apiUrl, Map<String, String> extensionData) {
+
+        if (consumer == null) {
+            throw new IllegalArgumentException("consumer is null");
+        }
+
+        if (owner == null) {
+            throw new IllegalArgumentException("owner is null");
+        }
+
         return JobBuilder.forJob(JOB_KEY)
-            .setJobName("export-" + Util.generateUUID())
+            .setJobName("export_manifest")
             .setJobArgument(CONSUMER_KEY, consumer.getUuid())
             .setJobArgument(CDN_LABEL, cdnLabel)
             .setJobArgument(WEBAPP_PREFIX, webAppPrefix)

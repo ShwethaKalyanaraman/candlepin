@@ -71,7 +71,7 @@ public class ExportJobTest extends BaseJobTest {
         final Map<String, String> extData = new HashMap<>();
         extData.put("version", "sat-6.2");
 
-        final JobBuilder builder = ExportJob.scheduleExport(
+        final JobBuilder builder = ExportJob.createJobBuilder(
             distributor, owner, CDN_LABEL, WEBAPP_PREFIX, API_URL, extData);
 
         final Map<String, Object> dataMap = builder.getJobArguments();
@@ -101,7 +101,7 @@ public class ExportJobTest extends BaseJobTest {
             eq(WEBAPP_PREFIX),
             eq(API_URL),
             eq(extData));
-        final JobBuilder detail = ExportJob.scheduleExport(
+        final JobBuilder detail = ExportJob.createJobBuilder(
             distributor, owner, CDN_LABEL, WEBAPP_PREFIX, API_URL, extData);
         when(ctx.getJobData()).thenReturn(new JobDataMap(detail.getJobArguments()));
 
