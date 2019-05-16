@@ -2389,6 +2389,7 @@ public class ConsumerResource {
 
         Owner owner = ownerCurator.findOwnerById(consumer.getOwnerId());
 
+
         JobBuilder builder = manifestManager.generateManifestAsync(consumerUuid, owner, cdnLabel,
             webAppPrefix, apiUrl, getExtensionParamMap(extensionArgs));
 
