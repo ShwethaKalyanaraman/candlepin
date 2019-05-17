@@ -848,10 +848,8 @@ public class JobManager implements ModeChangeListener {
 
         try {
             uow.begin();
-            setupLogging(status);
-
-            // TODO: fix this
-            setupPrincipal(status.getJobData());
+            this.setupLogging(status);
+            this.setupPrincipal(status);
 
             final AsyncJob job = injector.getInstance(jobClass);
 
@@ -1085,8 +1083,17 @@ public class JobManager implements ModeChangeListener {
         return status;
     }
 
-    private void setupPrincipal(final JobDataMap jobData) {
-        ResteasyProviderFactory.pushContext(Principal.class, new SystemPrincipal());
+    /**
+     * Configures and injects the principal to be used during the execution of the specified job.
+     *
+     * @param status
+     *  the job status to use to configure the principal
+     */
+    private void setupPrincipal(AsyncJobStatus status) {
+        String name = status.getPrincipal();
+        Principal principal = name != null ? new JobPrincipal(name) : new SystemPrincipal();
+
+        ResteasyProviderFactory.pushContext(Principal.class, principal);
     }
 
     /**
