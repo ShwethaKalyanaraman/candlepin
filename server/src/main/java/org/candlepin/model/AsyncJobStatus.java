@@ -15,9 +15,9 @@
 package org.candlepin.model;
 
 import org.candlepin.async.JobArguments;
+import org.candlepin.hibernate.AbstractJsonConverter;
 
 import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Type;
 
 import java.util.Collections;
 import java.util.Date;
@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.HashMap;
 
 import javax.persistence.Column;
+import javax.persistence.Convert;
+import javax.persistence.Converter;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -111,6 +113,17 @@ public class AsyncJobStatus extends AbstractHibernateObject {
         public Object result;
     }
 
+    /**
+     * JSON converter class for the SerializedJobData type.
+     */
+    @Converter
+    public static class JobDataJsonConverter extends AbstractJsonConverter<SerializedJobData> {
+        public JobDataJsonConverter() {
+            super(SerializedJobData.class);
+        }
+    }
+
+
 
     @Id
     @GeneratedValue(generator = "system-uuid")
@@ -163,7 +176,7 @@ public class AsyncJobStatus extends AbstractHibernateObject {
     private Date endTime;
 
     @Column(name = "job_data")
-    @Type(type = "org.candlepin.hibernate.DynamicJsonSerializedType")
+    @Convert(converter = JobDataJsonConverter.class)
     private SerializedJobData jobData;
 
 
