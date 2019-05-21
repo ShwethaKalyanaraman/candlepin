@@ -1,7 +1,7 @@
 #! /bin/bash
 #
 # Script that runs candlepin in a container.
-# Depends on a service running postgresql with hostname 'db'.
+# Depends on a container running postgresql locally (in the same pod).
 
 set -e
 
@@ -35,9 +35,10 @@ evalrc() {
 # Need to remove the default empty conf file so that cpsetup will create it with the appropriate properties
 rm /etc/candlepin/candlepin.conf
 
-retry 20 "postgres" pg_isready -h db
+retry 20 "postgres" pg_isready -h 127.0.0.1
 evalrc $? "Postgres did not start in time. Exiting..."
 
-/usr/share/candlepin/cpsetup -u postgres --dbhost db --dbport 5432 --skip-service
+retry 20 "postgres" /usr/share/candlepin/cpsetup -u postgres --dbhost 127.0.0.1 --dbport 5432 --skip-service
+evalrc $? "Postgres was not available in time. Exiting..."
 
 /usr/bin/supervisord -c /etc/supervisord.conf
